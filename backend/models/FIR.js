@@ -34,4 +34,4 @@ const firSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("FIR", firSchema);
+module.exports = mongoose.model("FIR", firSchema); 
