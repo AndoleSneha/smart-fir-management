@@ -1,0 +1,19 @@
+.page-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(15, 40, 98, 0.85),
+      rgba(9, 31, 54, 0.9)
+    ),
+    url("../assets/hero-fir.png");
+
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  padding-top: 90px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}

@@ -1,0 +1,62 @@
+.home {
+  height: 100vh;
+  background: url("../assets/hero-fir.png") center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay {
+  background: linear-gradient(
+    135deg,
+    rgba(15, 40, 98, 0.85),
+    rgba(9, 31, 54, 0.85)
+  );
+  padding: 60px;
+  border-radius: 20px;
+  color: #e6f1ff;
+  max-width: 700px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(0, 194, 255, 0.3);
+}
+
+.overlay h1 {
+  font-size: 42px;
+  margin-bottom: 15px;
+}
+
+.overlay p {
+  font-size: 18px;
+  opacity: 0.9;
+}
+
+.features {
+  margin: 25px 0;
+  display: flex;
+  justify-content: space-around;
+  font-size: 14px;
+}
+
+.actions {
+  margin-top: 30px;
+}
+
+.btn {
+  padding: 12px 30px;
+  margin: 10px;
+  font-size: 16px;
+  border-radius: 30px;
+  cursor: pointer;
+  border: none;
+}
+
+.primary {
+  background: linear-gradient(90deg, #00c2ff, #0f2862);
+  color: white;
+}
+
+.outline {
+  background: transparent;
+  border: 2px solid #00c2ff;
+  color: #00c2ff;
+}

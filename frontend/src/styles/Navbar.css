@@ -1,0 +1,9 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  padding: 16px 40px;
+  background: rgba(15, 40, 98, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+}

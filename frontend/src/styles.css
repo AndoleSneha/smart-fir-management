@@ -1,0 +1,148 @@
+/* 🌌 GLOBAL */
+body {
+  margin: 0;
+  font-family: "Poppins", "Segoe UI", sans-serif;
+  background: linear-gradient(135deg, #091f36, #0f2862);
+  color: #f5f7fa;
+  min-height: 100vh;
+}
+
+/* 🧭 NAVBAR */
+nav {
+  background: rgba(9, 31, 54, 0.95);
+  backdrop-filter: blur(12px);
+  padding: 18px 36px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+
+nav h3 {
+  margin: 0;
+  color: #1fd1f9;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+nav button {
+  background: transparent;
+  border: 1px solid #1fd1f9;
+  color: #1fd1f9;
+  padding: 9px 16px;
+  margin-left: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+nav button:hover {
+  background: #1fd1f9;
+  color: #091f36;
+}
+
+/* 🧾 CARDS */
+.container {
+  max-width: 620px;
+  margin: 90px auto;
+  background: rgba(15, 40, 98, 0.85);
+  padding: 40px;
+  border-radius: 18px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+  animation: fadeUp 0.6s ease;
+}
+
+/* ✨ Animation */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 🏷 HEADINGS */
+h2 {
+  text-align: center;
+  color: #1fd1f9;
+  margin-bottom: 25px;
+}
+
+/* 📝 INPUTS */
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #091f36;
+  color: #f5f7fa;
+  font-size: 15px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #b0b7c3;
+}
+
+/* 🔘 BUTTONS */
+button[type="submit"] {
+  width: 100%;
+  margin-top: 25px;
+  padding: 14px;
+  background: linear-gradient(135deg, #1fd1f9, #9e363a);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+button[type="submit"]:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 15px 40px rgba(31, 209, 249, 0.4);
+}
+
+/* 📊 TABLE */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 25px;
+}
+
+th {
+  background: #091f36;
+  color: #1fd1f9;
+  padding: 14px;
+}
+
+td {
+  padding: 12px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+
+/* 🧠 FIR STATUS COLORS (Admin Dashboard) */
+.status-pending {
+  color: #ffb703;
+  font-weight: 600;
+}
+
+.status-inprogress {
+  color: #00b4d8;
+  font-weight: 600;
+}
+
+.status-closed {
+  color: #2ec4b6;
+  font-weight: 600;
+}
+
