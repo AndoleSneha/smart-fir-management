@@ -2,23 +2,19 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
 import PageWrapper from "../components/PageWrapper";
+import { CATEGORIES } from "../constants/categories";
 
 function FileFIR() {
   const [description, setDescription] = useState("");
   const [email, setEmail] = useState("");
+  const [category, setCategory] = useState("Other");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     const role = localStorage.getItem("role");
 
-    if (!token) {
-      window.location.href = "/login";
-      return;
-    }
-
-    if (role === "police") {
-      window.location.href = "/admin";
-    }
+    if (!token) window.location.href = "/login";
+    if (role === "police") window.location.href = "/admin";
   }, []);
 
   const handleSubmit = async (e) => {
@@ -29,20 +25,17 @@ function FileFIR() {
 
       const res = await axios.post(
         "http://localhost:4000/api/fir",
-        { description, email },
+        { description, email, category },
         {
-          headers: {
-            Authorization: token,
-          },
+          headers: { Authorization: token },
         }
       );
 
-      alert(
-        `FIR Submitted Successfully!\nFIR ID: ${res.data.firId}\nCategory: ${res.data.category}`
-      );
+      alert(`FIR Submitted!\nID: ${res.data.firId}`);
 
       setDescription("");
       setEmail("");
+      setCategory("Other");
     } catch (error) {
       alert("Failed to submit FIR");
     }
@@ -51,6 +44,7 @@ function FileFIR() {
   return (
     <>
       <Navbar />
+
       <PageWrapper>
         <div className="card">
           <h2>File FIR</h2>
@@ -71,6 +65,16 @@ function FileFIR() {
               rows="5"
               required
             />
+
+            {/* ⭐ CATEGORY DROPDOWN ⭐ */}
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
 
             <button type="submit" className="btn">
               Submit FIR

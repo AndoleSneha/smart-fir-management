@@ -1,11 +1,36 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
+import "../styles/Dashboard.css";
+
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 function ViewFIRs() {
   const [firs, setFirs] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
 
-  // 🔐 AUTH + INITIAL LOAD
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    closed: 0,
+  });
+
+  // 🔐 AUTH
   useEffect(() => {
     const role = localStorage.getItem("role");
     const token = localStorage.getItem("token");
@@ -17,26 +42,34 @@ function ViewFIRs() {
     }
   }, []);
 
-  // 📥 FETCH ALL FIRs (JWT protected)
+  // 📥 FETCH
   const fetchFIRs = async () => {
     try {
       const token = localStorage.getItem("token");
 
       const res = await axios.get("http://localhost:4000/api/fir", {
-        headers: {
-          Authorization: token,
-        },
+        headers: { Authorization: token },
       });
 
-      setFirs(res.data);
-    } catch (error) {
-      alert("Unauthorized access. Please login again.");
-      localStorage.clear();
-      window.location.href = "/login";
+      const data = res.data || [];
+      setFirs(data);
+
+      setStats({
+        total: data.length,
+        pending: data.filter((f) => (f.status || "Pending") === "Pending")
+          .length,
+        inProgress: data.filter(
+          (f) => (f.status || "Pending") === "In Progress"
+        ).length,
+        closed: data.filter((f) => (f.status || "Pending") === "Closed")
+          .length,
+      });
+    } catch {
+      alert("Unauthorized");
     }
   };
 
-  // 🔄 UPDATE FIR STATUS
+  // 🔄 UPDATE
   const updateStatus = async (id, newStatus) => {
     try {
       const token = localStorage.getItem("token");
@@ -44,75 +77,222 @@ function ViewFIRs() {
       await axios.put(
         `http://localhost:4000/api/fir/${id}/status`,
         { status: newStatus },
-        {
-          headers: {
-            Authorization: token,
-          },
-        }
+        { headers: { Authorization: token } }
       );
 
       fetchFIRs();
-    } catch (error) {
-      alert("Failed to update status");
+    } catch {
+      alert("Failed");
     }
   };
 
+  // ⭐ FILTER LOGIC
+  let filteredFIRs = firs;
+
+  if (selectedCategory !== "All") {
+    filteredFIRs = filteredFIRs.filter(
+      (f) => (f.category || "Other") === selectedCategory
+    );
+  }
+
+  if (statusFilter !== "All") {
+    filteredFIRs = filteredFIRs.filter(
+      (f) => (f.status || "Pending") === statusFilter
+    );
+  }
+
+  if (search) {
+    filteredFIRs = filteredFIRs.filter(
+      (f) =>
+        (f.firId || "").toLowerCase().includes(search.toLowerCase()) ||
+        (f.description || "")
+          .toLowerCase()
+          .includes(search.toLowerCase())
+    );
+  }
+
+  // ⭐ CHART DATA
+  const statusData = [
+    { name: "Pending", value: stats.pending },
+    { name: "In Progress", value: stats.inProgress },
+    { name: "Closed", value: stats.closed },
+  ];
+
+  const categoryMap = {};
+  firs.forEach((f) => {
+    const cat = f.category || "Other";
+    categoryMap[cat] = (categoryMap[cat] || 0) + 1;
+  });
+
+  const categoryData = Object.keys(categoryMap).map((key) => ({
+    name: key,
+    value: categoryMap[key],
+  }));
+
+  const COLORS = ["#ffb703", "#00b4d8", "#2ec4b6"];
+
+  const categories = [
+    "All",
+    "Theft",
+    "Assault",
+    "Cyber Crime",
+    "Fraud",
+    "Other",
+  ];
+
   return (
     <>
-      {/* 🔹 NAVBAR */}
       <Navbar />
 
-      {/* 🔹 ADMIN DASHBOARD CARD */}
-      <div className="container">
-        <h2>Admin / Police Dashboard</h2>
+      <div className="pro-layout">
+        {/* SIDEBAR */}
+        <div className="pro-sidebar">
+          <h3>Crime</h3>
 
-        <table>
-          <thead>
-            <tr>
-              <th>FIR ID</th>
-              <th>Description</th>
-              <th>Category</th>
-              <th>Status</th>
-              <th>Change Status</th>
-              <th>Date & Time</th>
-            </tr>
-          </thead>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              className={selectedCategory === cat ? "active" : ""}
+              onClick={() => setSelectedCategory(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
 
-          <tbody>
-            {firs.length === 0 ? (
-              <tr>
-                <td colSpan="6" style={{ textAlign: "center" }}>
-                  No FIRs Found
-                </td>
-              </tr>
-            ) : (
-              firs.map((fir) => (
-                <tr key={fir._id}>
-                  <td>{fir.firId || "N/A"}</td>
-                  <td>{fir.description}</td>
-                  <td>{fir.category}</td>
-                  <td className={`status-${fir.status.toLowerCase().replace(" ", "")}`}>
-  {fir.status}
-</td>
+        {/* MAIN */}
+        <div className="pro-main">
+          <h2>All Cases</h2>
 
-                  <td>
-                    <select
-                      value={fir.status}
-                      onChange={(e) =>
-                        updateStatus(fir._id, e.target.value)
-                      }
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Closed">Closed</option>
-                    </select>
-                  </td>
-                  <td>{new Date(fir.createdAt).toLocaleString()}</td>
+          {/* SEARCH + FILTER */}
+          <div className="pro-top">
+            <input
+              type="text"
+              placeholder="Search FIR ID or description..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="All">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+
+          {/* STATS */}
+          <div className="pro-stats">
+            <div className="box">
+              <p>Total</p>
+              <h3>{stats.total}</h3>
+            </div>
+
+            <div className="box pending">
+              <p>Pending</p>
+              <h3>{stats.pending}</h3>
+            </div>
+
+            <div className="box progress">
+              <p>In Progress</p>
+              <h3>{stats.inProgress}</h3>
+            </div>
+
+            <div className="box closed">
+              <p>Closed</p>
+              <h3>{stats.closed}</h3>
+            </div>
+          </div>
+
+          {/* CHARTS */}
+          <div className="charts">
+            <div className="chart-box">
+              <h3>Cases by Status</h3>
+
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={statusData} dataKey="value" outerRadius={80} label>
+                    {statusData.map((entry, index) => (
+                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="chart-box">
+              <h3>Cases by Category</h3>
+
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={categoryData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="value" fill="#00c2ff" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* TABLE */}
+          <div className="pro-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>FIR ID</th>
+                  <th>Description</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Change</th>
+                  <th>Date</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+
+              <tbody>
+                {filteredFIRs.map((fir) => (
+                  <tr key={fir._id}>
+                    <td>{fir.firId || "N/A"}</td>
+                    <td>{fir.description || "-"}</td>
+                    <td>{fir.category || "Other"}</td>
+
+                    <td
+                      className={`status-${(fir.status || "Pending")
+                        .toLowerCase()
+                        .replace(" ", "")}`}
+                    >
+                      {fir.status || "Pending"}
+                    </td>
+
+                    <td>
+                      <select
+                        value={fir.status || "Pending"}
+                        onChange={(e) =>
+                          updateStatus(fir._id, e.target.value)
+                        }
+                      >
+                        <option>Pending</option>
+                        <option>In Progress</option>
+                        <option>Closed</option>
+                      </select>
+                    </td>
+
+                    <td>
+                      {fir.createdAt
+                        ? new Date(fir.createdAt).toLocaleString()
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </>
   );
