@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
+import { useNavigate } from "react-router-dom";
 import "../styles/Dashboard.css";
 
 import {
@@ -18,6 +19,8 @@ import {
 } from "recharts";
 
 function ViewFIRs() {
+  const navigate = useNavigate();
+
   const [firs, setFirs] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
@@ -86,7 +89,7 @@ function ViewFIRs() {
     }
   };
 
-  // ⭐ FILTER LOGIC
+  // ⭐ FILTER
   let filteredFIRs = firs;
 
   if (selectedCategory !== "All") {
@@ -164,7 +167,7 @@ function ViewFIRs() {
         <div className="pro-main">
           <h2>All Cases</h2>
 
-          {/* SEARCH + FILTER */}
+          {/* SEARCH */}
           <div className="pro-top">
             <input
               type="text"
@@ -255,41 +258,46 @@ function ViewFIRs() {
               </thead>
 
               <tbody>
-                {filteredFIRs.map((fir) => (
-                  <tr key={fir._id}>
-                    <td>{fir.firId || "N/A"}</td>
-                    <td>{fir.description || "-"}</td>
-                    <td>{fir.category || "Other"}</td>
+  {filteredFIRs.map((fir) => (
+    <tr
+      key={fir._id}
+      style={{ cursor: "pointer" }}
+      onClick={() => navigate(`/fir/${fir._id}`)}
+    >
+      <td>{fir.firId || "N/A"}</td>
+      <td>{fir.description || "-"}</td>
+      <td>{fir.category || "Other"}</td>
 
-                    <td
-                      className={`status-${(fir.status || "Pending")
-                        .toLowerCase()
-                        .replace(" ", "")}`}
-                    >
-                      {fir.status || "Pending"}
-                    </td>
+      <td
+        className={`status-${(fir.status || "Pending")
+          .toLowerCase()
+          .replace(" ", "")}`}
+      >
+        {fir.status || "Pending"}
+      </td>
 
-                    <td>
-                      <select
-                        value={fir.status || "Pending"}
-                        onChange={(e) =>
-                          updateStatus(fir._id, e.target.value)
-                        }
-                      >
-                        <option>Pending</option>
-                        <option>In Progress</option>
-                        <option>Closed</option>
-                      </select>
-                    </td>
+      {/* VERY IMPORTANT */}
+      {/* prevent row click when using dropdown */}
+      <td onClick={(e) => e.stopPropagation()}>
+        <select
+          value={fir.status || "Pending"}
+          onChange={(e) => updateStatus(fir._id, e.target.value)}
+        >
+          <option>Pending</option>
+          <option>In Progress</option>
+          <option>Closed</option>
+        </select>
+      </td>
 
-                    <td>
-                      {fir.createdAt
-                        ? new Date(fir.createdAt).toLocaleString()
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+      <td>
+        {fir.createdAt
+          ? new Date(fir.createdAt).toLocaleString()
+          : "-"}
+      </td>
+    </tr>
+  ))}
+</tbody>
+
             </table>
           </div>
         </div>

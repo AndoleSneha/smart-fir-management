@@ -20,12 +20,12 @@ function App() {
       <ToastContainer position="top-right" autoClose={3000} />
 
       <Routes>
+        {/* PUBLIC */}
         <Route path="/" element={<Home />} />
-
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
 
-        {/* Citizen */}
+        {/* CITIZEN */}
         <Route
           path="/file-fir"
           element={
@@ -44,7 +44,7 @@ function App() {
           }
         />
 
-        {/* Police */}
+        {/* POLICE */}
         <Route
           path="/admin"
           element={
