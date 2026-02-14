@@ -28,6 +28,25 @@ const firSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+
+   assignedOfficer: {
+  type: String,
+  default: "Not Assigned",
+},
+
+priority: {
+  type: String,
+  default: "Medium",
+},
+
+timeline: [
+  {
+    message: String,
+    date: { type: Date, default: Date.now },
+  },
+],
+
+
   },
   {
     timestamps: true, // auto adds createdAt & updatedAt

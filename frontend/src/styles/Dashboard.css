@@ -506,3 +506,149 @@ select {
   }
 }
 
+
+/* MINISTRY LOOK */
+.ministry {
+  background: white;
+  color: black;
+  font-family: "Times New Roman", serif;
+}
+
+.fir-header {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.logo {
+  width: 60px;
+}
+
+.verification {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 15px 0;
+}
+
+.description-box {
+  border: 1px solid black;
+  padding: 10px;
+  min-height: 80px;
+}
+
+.fir-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+}
+
+.line {
+  width: 200px;
+  border-bottom: 1px solid black;
+  margin-top: 20px;
+}
+
+.seal {
+  border: 2px solid black;
+  padding: 10px;
+  font-weight: bold;
+}
+
+/* ===== TIMELINE ===== */
+.timeline {
+  margin-top: 15px;
+  border-left: 3px solid #00c2ff;
+  padding-left: 15px;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.timeline-item .dot {
+  width: 10px;
+  height: 10px;
+  background: #00c2ff;
+  border-radius: 50%;
+  position: absolute;
+  left: -21px;
+  top: 5px;
+}
+
+.timeline-item p {
+  margin: 0;
+  font-weight: bold;
+}
+
+.timeline-item small {
+  color: gray;
+}
+
+.comment-box {
+  background: #0f172a;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.comment-box textarea {
+  width: 100%;
+  height: 80px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #00c2ff;
+  background: #0b2a4a;
+  color: white;
+}
+
+.comment-box button {
+  margin-top: 10px;
+}
+/* ================= PRINT: HIDE EDIT PART ================= */
+@media print {
+
+  /* hide comment input section */
+  .comment-box {
+    display: none !important;
+  }
+
+  /* hide actions / buttons */
+  .actions {
+    display: none !important;
+  }
+
+  textarea {
+    display: none !important;
+  }
+
+  button {
+    display: none !important;
+  }
+}
+.fir-header {
+  text-align: center;
+  margin-bottom: 20px;
+
+  /* 👇 important */
+  display: block;
+}
+
+.fir-header h1,
+.fir-header h2 {
+  display: block;   /* force new line */
+  width: 100%;
+}
+
+.fir-header h1 {
+  margin-bottom: 12px;  /* gap */
+  font-size: 22px;
+}
+
+.fir-header h2 {
+  margin-top: 0;
+  font-size: 18px;
+  letter-spacing: 1px;
+}

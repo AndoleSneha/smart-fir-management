@@ -36,6 +36,10 @@ router.post("/", auth, async (req, res) => {
       category,
       status: "Pending",
       email,
+      timeline: [
+  { message: "FIR Registered" }
+],
+
     });
 
     await fir.save();
@@ -79,14 +83,22 @@ router.put("/:id/status", auth, async (req, res) => {
 
     const { status } = req.body;
 
-    const fir = await FIR.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    // 🔥 find FIR first
+    const fir = await FIR.findById(req.params.id);
 
     if (!fir) return res.status(404).json({ error: "FIR not found" });
 
+    // 🔥 update status
+    fir.status = status;
+
+    // 🚀 ADD TO TIMELINE
+    fir.timeline.push({
+      message: `Status changed to ${status}`,
+    });
+
+    await fir.save();
+
+    // 📧 email
     if (fir.email) {
       await sendEmail(
         fir.email,
@@ -96,12 +108,124 @@ router.put("/:id/status", auth, async (req, res) => {
     }
 
     res.json({ message: "Status updated" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+/* ===============================
+   ASSIGN OFFICER
+================================ */
+router.put("/:id/assign", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "police") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const { officer } = req.body;
+
+    const fir = await FIR.findById(req.params.id);
+    if (!fir) return res.status(404).json({ error: "FIR not found" });
+
+    fir.assignedOfficer = officer;
+
+    fir.timeline.push({
+      message: `Officer assigned to ${officer}`,
+      date: new Date(),
+    });
+
+    await fir.save();
+
+    res.json({ message: "Officer assigned" });
   } catch {
     res.status(500).json({ error: "Server error" });
   }
 });
 
 
+/* ===============================
+   ADD COMMENT (Police)
+================================ */
+router.post("/:id/comment", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "police") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const { comment } = req.body;
+
+    const fir = await FIR.findById(req.params.id);
+
+    if (!fir) return res.status(404).json({ error: "FIR not found" });
+
+    // 🚀 push into timeline
+    fir.timeline.push({
+      message: `Comment: ${comment}`,
+    });
+
+    await fir.save();
+
+    res.json({ message: "Comment added" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
+/* ===============================
+   ASSIGN OFFICER
+================================ */
+router.put("/:id/assign", auth, async (req, res) => {
+  try {
+    if (req.user.role !== "police") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const { officer } = req.body;
+
+    const fir = await FIR.findById(req.params.id);
+    if (!fir) return res.status(404).json({ error: "FIR not found" });
+
+    fir.assignedOfficer = officer;
+
+    fir.timeline.push({
+      message: `Assigned to ${officer}`,
+    });
+
+    await fir.save();
+
+    res.json({ message: "Officer assigned" });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+/* ===============================
+   UPDATE PRIORITY
+================================ */
+router.put("/:id/priority", auth, async (req, res) => {
+  try {
+    const { priority } = req.body;
+
+    const fir = await FIR.findById(req.params.id);
+    if (!fir) return res.status(404).json({ error: "FIR not found" });
+
+    fir.priority = priority;
+
+    fir.timeline.push({
+      message: `Priority set to ${priority}`,
+    });
+
+    await fir.save();
+
+    res.json({ message: "Priority updated" });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 
 
