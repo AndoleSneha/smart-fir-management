@@ -157,7 +157,7 @@ function MyComplaints() {
 
                       <p>
                         <b>Assigned Officer:</b>{" "}
-                        {complaint.assignedOfficer || "Not Assigned"}
+                        {complaint.assignedOfficer || "Unassigned"}
                       </p>
 
                       {complaint.remarks && (
@@ -210,7 +210,7 @@ function MyComplaints() {
 
                           <p style={{ margin: "5px 0" }}>
                             <b>Assigned Officer:</b>{" "}
-                            {complaint.linkedFIR.assignedOfficer || "Not Assigned"}
+                            {complaint.linkedFIR.assignedOfficer || "Unassigned"}
                           </p>
 
                           {complaint.linkedFIR.remarks && (

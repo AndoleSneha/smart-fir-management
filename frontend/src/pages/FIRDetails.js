@@ -11,7 +11,7 @@ function FIRDetails() {
   const [comment, setComment] = useState("");
 
   /* ================= FETCH ================= */
-  const fetchDetails = async () => {
+  const fetchDetails = React.useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
 
@@ -24,16 +24,15 @@ function FIRDetails() {
     } catch {
       alert("Error loading FIR");
     }
-  };
+  }, [id]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchDetails();
 
     // 🚀 LIVE REFRESH every 10 sec
     const interval = setInterval(fetchDetails, 10000);
     return () => clearInterval(interval);
-  }, [id]);
+  }, [fetchDetails]);
 
   /* ================= ADD COMMENT ================= */
   const addComment = async () => {
@@ -72,6 +71,31 @@ function FIRDetails() {
     }
   };
 
+  const downloadFIRPdf = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `http://localhost:4000/api/fir/${id}/download`,
+        {
+          headers: { Authorization: token },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `FIR-${fir.firId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert("Failed to download FIR PDF");
+    }
+  };
+
   if (!fir) return <h2 style={{ color: "white", padding: 20 }}>Loading...</h2>;
 
   return (
@@ -79,7 +103,7 @@ function FIRDetails() {
       <Navbar />
 
       <div className="details-page">
-        <div className="details-card">
+        <div className="details-card ministry">
 
           {/* HEADER */}
           <div className="fir-header">
@@ -107,7 +131,9 @@ function FIRDetails() {
             </p>
 
             <p><b>Category:</b> {fir.category}</p>
-
+            <p><b>Complainant Name:</b> {fir.complainantName || "-"}</p>
+            <p><b>Contact Email:</b> {fir.email || "-"}</p>
+            <p><b>Location:</b> {fir.location || "-"}</p>
             {/* ⭐ PRIORITY */}
             <p>
               <b>Priority:</b>{" "}
@@ -119,7 +145,7 @@ function FIRDetails() {
             {/* ⭐ ASSIGNED OFFICER */}
             <p>
               <b>Assigned Officer:</b>{" "}
-              {fir.assignedOfficer || "Not Assigned"}
+              {fir.assignedOfficer || "Unassigned"}
             </p>
           </div>
 
@@ -139,12 +165,6 @@ function FIRDetails() {
             </select>
           </div>
 
-          {/* COMPLAINANT */}
-          <div className="fir-section">
-            <p><b>Complainant Email:</b> {fir.email}</p>
-          </div>
-
-          <hr />
 
           {/* DESCRIPTION */}
           <div className="fir-section">
@@ -214,6 +234,9 @@ function FIRDetails() {
           <div className="actions no-print">
             <button onClick={() => window.print()}>
               🖨 Print / Save PDF
+            </button>
+            <button onClick={downloadFIRPdf} style={{ marginLeft: 12 }}>
+              📄 Export FIR PDF
             </button>
           </div>
 

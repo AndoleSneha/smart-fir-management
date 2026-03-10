@@ -21,7 +21,7 @@ function ReviewComplaints() {
   const [complaints, setComplaints] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("Active");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [sortBy, setSortBy] = useState("latest");
@@ -105,7 +105,9 @@ function ReviewComplaints() {
 
       alert(`FIR Filed Successfully!\nFIR ID: ${response.data.firId}`);
       setShowModal(false);
+      setStatusFilter("Active");
       fetchComplaints();
+      window.location.href = "/admin";
     } catch (error) {
       const apiMsg =
         error.response?.data?.error || error.response?.data?.message;
@@ -130,7 +132,9 @@ function ReviewComplaints() {
     );
   }
 
-  if (statusFilter !== "All") {
+  if (statusFilter === "Active") {
+    filteredComplaints = filteredComplaints.filter((c) => c.status !== "FIR Filed");
+  } else if (statusFilter !== "All") {
     filteredComplaints = filteredComplaints.filter((c) => c.status === statusFilter);
   }
 
@@ -247,6 +251,7 @@ function ReviewComplaints() {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
+              <option value="Active">Active (excludes FIR Filed)</option>
               <option value="All">All Status</option>
               <option value="Submitted">Submitted</option>
               <option value="Under Review">Under Review</option>

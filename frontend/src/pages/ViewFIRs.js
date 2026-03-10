@@ -34,9 +34,9 @@ function ViewFIRs() {
   const [drawerNotes, setDrawerNotes] = useState("");
   const [assignMode, setAssignMode] = useState(false);
   const [assignInput, setAssignInput] = useState("");
+  const [tagInput, setTagInput] = useState("");
 
-  const [rowAssignId, setRowAssignId] = useState(null);
-  const [rowAssignOfficer, setRowAssignOfficer] = useState("");
+  // Unused vars removed (legacy)
 
   const officers = [
     "Inspector Sharma",
@@ -63,6 +63,7 @@ function ViewFIRs() {
     if (drawerFIR) {
       setDrawerNotes(drawerFIR.internalNotes || "");
       setAssignInput(drawerFIR.assignedOfficer || "");
+      setTagInput("");
       setAssignMode(false);
     }
   }, [drawerFIR]);
@@ -144,10 +145,52 @@ function ViewFIRs() {
 
       setDrawerFIR(res.data);
       setAssignMode(false);
-      setRowAssignId(null);
     } catch {
       alert("Failed to assign officer");
     }
+  };
+
+  const saveTags = async (tags) => {
+    if (!drawerFIR) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await axios.put(
+        `http://localhost:4000/api/fir/${drawerFIR._id}/tags`,
+        { tags },
+        { headers: { Authorization: token } }
+      );
+
+      await fetchFIRs();
+      setDrawerFIR((prev) => ({ ...prev, tags: res.data.tags }));
+    } catch {
+      alert("Failed to update tags");
+    }
+  };
+
+  const addTag = () => {
+    const t = tagInput.trim();
+    if (!t || !drawerFIR) return;
+
+    const currentTags = drawerFIR.tags || [];
+    if (currentTags.includes(t)) {
+      setTagInput("");
+      return;
+    }
+
+    const updated = [...currentTags, t];
+    setDrawerFIR((prev) => ({ ...prev, tags: updated }));
+    setTagInput("");
+    saveTags(updated);
+  };
+
+  const removeTag = (tag) => {
+    if (!drawerFIR) return;
+
+    const updated = (drawerFIR.tags || []).filter((t) => t !== tag);
+    setDrawerFIR((prev) => ({ ...prev, tags: updated }));
+    saveTags(updated);
   };
 
   const downloadFIR = async (firId, firLabel) => {
@@ -178,7 +221,7 @@ function ViewFIRs() {
 
   const autoAssignUnassigned = async () => {
     const unassignedFirs = firs.filter(
-      (f) => !f.assignedOfficer || f.assignedOfficer === "Not assigned"
+      (f) => !f.assignedOfficer || f.assignedOfficer === "Unassigned"
     );
 
     if (!unassignedFirs.length) {
@@ -224,6 +267,30 @@ function ViewFIRs() {
         <span>{item.label}</span>
       </span>
     );
+  };
+
+  const categorySLADays = {
+    "Missing Person": 3,
+    Theft: 15,
+    Assault: 10,
+    "Cyber Crime": 10,
+    Fraud: 18,
+    Other: 30,
+  };
+
+  const getSLAInfo = (fir) => {
+    if (!fir) return null;
+    const created = fir.createdAt ? new Date(fir.createdAt) : new Date();
+    const duration = categorySLADays[fir.category] || categorySLADays.Other;
+    const due = fir.dueDate ? new Date(fir.dueDate) : new Date(created.getTime() + duration * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const diff = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diff < 0) {
+      return { label: "⚠ Overdue", color: "#ff006e", days: diff };
+    }
+
+    return { label: `⏰ ${diff} day${diff === 1 ? "" : "s"} left`, color: "#00b4d8", days: diff, due };
   };
 
   const isImage = (filename) => {
@@ -341,11 +408,51 @@ function ViewFIRs() {
     const highPriority = firs.filter((f) => f.priority === "High").length;
 
     const unassigned = firs.filter(
-      (f) => !f.assignedOfficer || f.assignedOfficer === "Not Assigned"
+      (f) => !f.assignedOfficer || f.assignedOfficer === "Unassigned"
     ).length;
 
     return { pendingLonger, highPriority, unassigned };
   }, [firs]);
+
+  const officerStats = useMemo(() => {
+    const map = {};
+
+    firs.forEach((f) => {
+      const officer = f.assignedOfficer || "Unassigned";
+      if (!map[officer]) {
+        map[officer] = { officer, cases: 0, open: 0, closed: 0, closedMs: 0 };
+      }
+      map[officer].cases += 1;
+
+      if (f.status === "Closed") {
+        map[officer].closed += 1;
+        const created = f.createdAt ? new Date(f.createdAt).getTime() : Date.now();
+        const closed = f.updatedAt ? new Date(f.updatedAt).getTime() : Date.now();
+        map[officer].closedMs += Math.max(0, closed - created);
+      } else {
+        map[officer].open += 1;
+      }
+    });
+
+    return Object.values(map)
+      .map((stats) => ({
+        ...stats,
+        avgDays: stats.closed
+          ? Math.round(stats.closedMs / stats.closed / (1000 * 60 * 60 * 24))
+          : null,
+      }))
+      .sort((a, b) => b.cases - a.cases);
+  }, [firs]);
+
+  const recommendedFIRs = useMemo(() => {
+    if (!drawerFIR) return [];
+
+    const candidates = firs
+      .filter((f) => f._id !== drawerFIR._id)
+      .filter((f) => f.category === drawerFIR.category || (drawerFIR.location && f.location === drawerFIR.location));
+
+    return candidates.slice(0, 3);
+  }, [firs, drawerFIR]);
 
   const statusData = [
     { name: "Registered", value: derivedStats.registered },
@@ -500,6 +607,14 @@ function ViewFIRs() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            <button
+              className="btn"
+              style={{ backgroundColor: "#00b4d8" }}
+              onClick={autoAssignUnassigned}
+              title="Auto-assign unassigned FIRs to officers"
+            >
+              Auto-assign
+            </button>
 
             <select
               value={selectedCategory}
@@ -607,6 +722,42 @@ function ViewFIRs() {
             )}
           </div>
 
+          {/* OFFICER PERFORMANCE */}
+          <div className="officer-performance" style={{ margin: "20px 0" }}>
+            <h3>Officer Performance</h3>
+            {officerStats.length === 0 ? (
+              <p style={{ color: "#aaa" }}>No officers assigned yet.</p>
+            ) : (
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                {officerStats.slice(0, 3).map((s) => (
+                  <div
+                    key={s.officer}
+                    style={{
+                      background: "#0f172a",
+                      borderRadius: "10px",
+                      padding: "15px",
+                      minWidth: "200px",
+                    }}
+                  >
+                    <h4 style={{ margin: "0 0 6px 0" }}>{s.officer}</h4>
+                    <p style={{ margin: "4px 0" }}>
+                      Cases: <strong>{s.cases}</strong>
+                    </p>
+                    <p style={{ margin: "4px 0" }}>
+                      Open: <strong>{s.open}</strong>
+                    </p>
+                    <p style={{ margin: "4px 0" }}>
+                      Closed: <strong>{s.closed}</strong>
+                    </p>
+                    <p style={{ margin: "4px 0" }}>
+                      Avg res.: <strong>{s.avgDays ?? "—"} days</strong>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* CHARTS */}
           <div className="charts">
             <div className="chart-box">
@@ -682,45 +833,49 @@ function ViewFIRs() {
               <thead>
                 <tr>
                   <th>FIR ID</th>
+                  <th>Description</th>
                   <th>Complainant</th>
                   <th>Location</th>
                   <th>Category</th>
                   <th>Status</th>
                   <th>Assigned Officer</th>
                   <th>Change</th>
+                  <th>Deadline</th>
                   <th>Date</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredFIRs.map((fir) => (
-                  <tr
-                    key={fir._id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => {
-                      setDrawerFIR(fir);
-                      setDrawerOpen(true);
-                    }}
-                  >
+                {filteredFIRs.map((fir) => {
+                  const sla = getSLAInfo(fir);
+                  return (
+                    <tr
+                      key={fir._id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        setDrawerFIR(fir);
+                        setDrawerOpen(true);
+                      }}
+                    >
                     <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span>{fir.firId || "N/A"}</span>
-                        {fir.status === "Registered" && (
-                          <span
-                            style={{
-                              fontSize: "12px",
-                              padding: "2px 8px",
-                              borderRadius: "999px",
-                              background: "rgba(0, 180, 216, 0.2)",
-                              color: "#00b4d8",
-                            }}
-                          >
-                            📄
-                          </span>
-                        )}
-                      </div>
+                      <a
+                        href={`/fir/${fir._id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        style={{
+                          color: "#00b4d8",
+                          fontWeight: "600",
+                          textDecoration: "underline",
+                          cursor: "pointer",
+                        }}
+                        title="Open FIR document"
+                      >
+                        {fir.firId || "N/A"}
+                      </a>
                     </td>
 
+                    <td>{(fir.description || "").substring(0, 60)}{(fir.description || "").length > 60 ? "..." : ""}</td>
                     <td>{fir.complainantName || "-"}</td>
                     <td>{fir.location || "-"}</td>
                     <td>{fir.category || "Other"}</td>
@@ -729,7 +884,7 @@ function ViewFIRs() {
                       {fir.status || "Registered"}
                     </td>
 
-                    <td>{fir.assignedOfficer || "Not assigned"}</td>
+                    <td>{fir.assignedOfficer || "Unassigned"}</td>
 
                     {/* VERY IMPORTANT */}
                     {/* prevent row click when using dropdown */}
@@ -746,12 +901,31 @@ function ViewFIRs() {
                     </td>
 
                     <td>
+                      {sla ? (
+                        <span
+                          style={{
+                            padding: "4px 10px",
+                            borderRadius: "999px",
+                            backgroundColor: sla.color,
+                            color: "white",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {sla.label}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+
+                    <td>
                       {fir.createdAt
                         ? new Date(fir.createdAt).toLocaleString()
                         : "-"}
                     </td>
                   </tr>
-                ))}
+                );
+              })}
               </tbody>
 
             </table>
@@ -787,6 +961,27 @@ function ViewFIRs() {
                   {drawerFIR.status}
                 </span>
               </p>
+
+              {(() => {
+                const sla = getSLAInfo(drawerFIR);
+                if (!sla) return null;
+                return (
+                  <p>
+                    <strong>Deadline:</strong>{" "}
+                    <span
+                      style={{
+                        backgroundColor: sla.color,
+                        padding: "4px 10px",
+                        borderRadius: "999px",
+                        color: "white",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {sla.label}
+                    </span>
+                  </p>
+                );
+              })()}
               <p>
                 <strong>Complainant:</strong> {drawerFIR.complainantName || "-"}
               </p>
@@ -828,7 +1023,7 @@ function ViewFIRs() {
                   </>
                 ) : (
                   <>
-                    <span>{drawerFIR.assignedOfficer || "Not assigned"}</span>
+                    <span>{drawerFIR.assignedOfficer || "Unassigned"}</span>
                     <button
                       className="btn"
                       style={{
@@ -842,6 +1037,67 @@ function ViewFIRs() {
                     </button>
                   </>
                 )}
+              </div>
+
+              {/* Tags */}
+              <div style={{ marginTop: "16px" }}>
+                <h4>Tags</h4>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+                  {(drawerFIR.tags || []).map((tag) => (
+                    <span
+                      key={tag}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "6px 10px",
+                        borderRadius: "999px",
+                        background: "rgba(0, 180, 216, 0.15)",
+                        color: "#00b4d8",
+                        fontWeight: 600,
+                      }}
+                    >
+                      #{tag}
+                      <button
+                        onClick={() => removeTag(tag)}
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          cursor: "pointer",
+                          color: "#00b4d8",
+                          fontSize: "14px",
+                        }}
+                        aria-label={`Remove tag ${tag}`}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    placeholder="Add tag (e.g. Urgent)"
+                    style={{
+                      padding: "8px",
+                      borderRadius: "6px",
+                      border: "1px solid #333",
+                      flex: 1,
+                      background: "#0b2a4a",
+                      color: "white",
+                    }}
+                  />
+                  <button
+                    className="btn"
+                    style={{ backgroundColor: "#00b4d8" }}
+                    onClick={addTag}
+                    disabled={!tagInput.trim()}
+                  >
+                    Add
+                  </button>
+                </div>
               </div>
 
               {drawerFIR.linkedComplaint?.evidence?.length > 0 && (
@@ -918,6 +1174,40 @@ function ViewFIRs() {
                 </div>
               )}
 
+              {recommendedFIRs.length > 0 && (
+                <div style={{ marginTop: "16px" }}>
+                  <h4>Similar Cases</h4>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {recommendedFIRs.map((f) => (
+                      <div
+                        key={f._id}
+                        style={{
+                          padding: "10px",
+                          borderRadius: "8px",
+                          background: "rgba(0, 180, 216, 0.1)",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          setDrawerFIR(f);
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <div>
+                            <strong>{f.firId}</strong> • {f.category}
+                          </div>
+                          <div style={{ color: "#888", fontSize: "12px" }}>
+                            {new Date(f.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div style={{ marginTop: "6px", color: "#aaa", fontSize: "13px" }}>
+                          {f.location || "No location"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <hr />
 
               <h4>Internal Notes</h4>
@@ -931,6 +1221,14 @@ function ViewFIRs() {
               <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
                 <button className="btn" onClick={saveInternalNotes}>
                   Save Notes
+                </button>
+                <button
+                  className="btn"
+                  style={{ background: "#00b4d8" }}
+                  onClick={() => downloadFIR(drawerFIR._id, drawerFIR.firId)}
+                  title="Download FIR as PDF"
+                >
+                  Download PDF
                 </button>
                 <button
                   className="btn"
@@ -951,6 +1249,11 @@ function ViewFIRs() {
                         <div>
                           <p style={{ margin: 0 }}>
                             <strong style={{ color: "#00b4d8" }}>{t.type}:</strong> {t.message}
+                            {t.actor && (
+                              <span style={{ color: "#888", marginLeft: "6px" }}>
+                                (by {t.actor})
+                              </span>
+                            )}
                           </p>
                           <small style={{ color: "#888" }}>
                             {t.date ? t.date.toLocaleString() : ""}

@@ -18,6 +18,7 @@ function Login() {
 
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("role", res.data.role);
+      if (res.data.name) localStorage.setItem("name", res.data.name);
 
       if (res.data.role === "police") {
         window.location.href = "/admin";

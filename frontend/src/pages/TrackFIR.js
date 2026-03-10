@@ -160,7 +160,7 @@ function TrackFIR() {
                           Assigned Officer:
                         </td>
                         <td style={{ padding: "10px" }}>
-                          {result.assignedOfficer || "Not Assigned"}
+                          {result.assignedOfficer || "Unassigned"}
                         </td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #ddd" }}>
@@ -202,8 +202,37 @@ function TrackFIR() {
                       </p>
                       <p>
                         <strong>Assigned Officer:</strong>{" "}
-                        {result.linkedFIR.assignedOfficer || "Not Assigned"}
+                        {result.linkedFIR.assignedOfficer || "Unassigned"}
                       </p>
+                    </div>
+                  )}
+
+                  {result.evidence && result.evidence.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "20px",
+                        padding: "15px",
+                        backgroundColor: "#eef6ff",
+                        borderRadius: "6px",
+                        borderLeft: "4px solid #00b4d8",
+                      }}
+                    >
+                      <h4 style={{ margin: "0 0 10px 0", color: "#00b4d8" }}>
+                        📎 Evidence Files
+                      </h4>
+                      <ul style={{ margin: 0, paddingLeft: "20px" }}>
+                        {result.evidence.map((file, idx) => (
+                          <li key={idx}>
+                            <a
+                              href={`http://localhost:4000/${file}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              View/download file {idx + 1}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </>
@@ -253,7 +282,7 @@ function TrackFIR() {
                           Assigned Officer:
                         </td>
                         <td style={{ padding: "10px" }}>
-                          {result.assignedOfficer || "Not Assigned"}
+                          {result.assignedOfficer || "Unassigned"}
                         </td>
                       </tr>
                       <tr style={{ borderBottom: "1px solid #ddd" }}>
