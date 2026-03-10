@@ -8,7 +8,9 @@ import Home from "./pages/Home";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import FileFIR from "./pages/FileFIR";
+import MyComplaints from "./pages/MyComplaints";
 import ViewFIRs from "./pages/ViewFIRs";
+import ReviewComplaints from "./pages/ReviewComplaints";
 import TrackFIR from "./pages/TrackFIR";
 import FIRDetails from "./pages/FIRDetails";
 
@@ -36,6 +38,15 @@ function App() {
         />
 
         <Route
+          path="/my-complaints"
+          element={
+            <ProtectedRoute roleRequired="citizen">
+              <MyComplaints />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/track-fir"
           element={
             <ProtectedRoute roleRequired="citizen">
@@ -50,6 +61,15 @@ function App() {
           element={
             <ProtectedRoute roleRequired="police">
               <ViewFIRs />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/review-complaints"
+          element={
+            <ProtectedRoute roleRequired="police">
+              <ReviewComplaints />
             </ProtectedRoute>
           }
         />

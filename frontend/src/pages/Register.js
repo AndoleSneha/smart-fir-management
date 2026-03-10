@@ -10,6 +10,7 @@ function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("citizen");
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async (e) => {
@@ -21,7 +22,7 @@ function Register() {
         name,
         email,
         password,
-        role: "citizen", // ⭐ important
+        role,
       });
 
       alert("✅ Registration successful! Please login.");
@@ -63,6 +64,15 @@ function Register() {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
+
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              style={{ marginBottom: "16px" }}
+            >
+              <option value="citizen">Register as Citizen</option>
+              <option value="police">Register as Police</option>
+            </select>
 
             <input
               type="password"

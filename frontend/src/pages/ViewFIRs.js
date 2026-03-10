@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
-import { useNavigate } from "react-router-dom";
 import "../styles/Dashboard.css";
 
 import {
@@ -11,6 +10,8 @@ import {
   Tooltip,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -19,19 +20,32 @@ import {
 } from "recharts";
 
 function ViewFIRs() {
-  const navigate = useNavigate();
 
   const [firs, setFirs] = useState([]);
+  const [complaints, setComplaints] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [sortBy, setSortBy] = useState("latest");
+  const [drawerFIR, setDrawerFIR] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerNotes, setDrawerNotes] = useState("");
+  const [assignMode, setAssignMode] = useState(false);
+  const [assignInput, setAssignInput] = useState("");
 
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    inProgress: 0,
-    closed: 0,
-  });
+  const [rowAssignId, setRowAssignId] = useState(null);
+  const [rowAssignOfficer, setRowAssignOfficer] = useState("");
+
+  const officers = [
+    "Inspector Sharma",
+    "Officer Rao",
+    "Inspector Patel",
+    "Constable Singh",
+  ];
+
+  // stats will be derived from filteredFIRs
 
   // 🔐 AUTH
   useEffect(() => {
@@ -45,28 +59,30 @@ function ViewFIRs() {
     }
   }, []);
 
+  useEffect(() => {
+    if (drawerFIR) {
+      setDrawerNotes(drawerFIR.internalNotes || "");
+      setAssignInput(drawerFIR.assignedOfficer || "");
+      setAssignMode(false);
+    }
+  }, [drawerFIR]);
+
   // 📥 FETCH
   const fetchFIRs = async () => {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await axios.get("http://localhost:4000/api/fir", {
-        headers: { Authorization: token },
-      });
+      const [firRes, complaintsRes] = await Promise.all([
+        axios.get("http://localhost:4000/api/fir", {
+          headers: { Authorization: token },
+        }),
+        axios.get("http://localhost:4000/api/complaints", {
+          headers: { Authorization: token },
+        }),
+      ]);
 
-      const data = res.data || [];
-      setFirs(data);
-
-      setStats({
-        total: data.length,
-        pending: data.filter((f) => (f.status || "Pending") === "Pending")
-          .length,
-        inProgress: data.filter(
-          (f) => (f.status || "Pending") === "In Progress"
-        ).length,
-        closed: data.filter((f) => (f.status || "Pending") === "Closed")
-          .length,
-      });
+      setFirs(firRes.data || []);
+      setComplaints(complaintsRes.data || []);
     } catch {
       alert("Unauthorized");
     }
@@ -85,8 +101,138 @@ function ViewFIRs() {
 
       fetchFIRs();
     } catch {
-      alert("Failed");
+      alert("Failed to update status");
     }
+  };
+
+  const saveInternalNotes = async () => {
+    if (!drawerFIR) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        `http://localhost:4000/api/fir/${drawerFIR._id}/internal-notes`,
+        { internalNotes: drawerNotes },
+        { headers: { Authorization: token } }
+      );
+
+      fetchFIRs();
+      setDrawerOpen(false);
+    } catch {
+      alert("Failed to save notes");
+    }
+  };
+
+  const assignOfficer = async (firId, officer) => {
+    if (!firId) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        `http://localhost:4000/api/fir/${firId}/assign`,
+        { officer },
+        { headers: { Authorization: token } }
+      );
+
+      // Refresh data and keep drawer open
+      await fetchFIRs();
+      const res = await axios.get(`http://localhost:4000/api/fir/${firId}`, {
+        headers: { Authorization: token },
+      });
+
+      setDrawerFIR(res.data);
+      setAssignMode(false);
+      setRowAssignId(null);
+    } catch {
+      alert("Failed to assign officer");
+    }
+  };
+
+  const downloadFIR = async (firId, firLabel) => {
+    if (!firId) return;
+    try {
+      const token = localStorage.getItem("token");
+      const response = await axios.get(
+        `http://localhost:4000/api/fir/${firId}/download`,
+        {
+          headers: { Authorization: token },
+          responseType: "blob",
+        }
+      );
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${firLabel || firId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert("Failed to download FIR PDF");
+    }
+  };
+
+  const autoAssignUnassigned = async () => {
+    const unassignedFirs = firs.filter(
+      (f) => !f.assignedOfficer || f.assignedOfficer === "Not assigned"
+    );
+
+    if (!unassignedFirs.length) {
+      alert("No unassigned FIRs found.");
+      return;
+    }
+
+    let idx = 0;
+    for (const fir of unassignedFirs) {
+      const officer = officers[idx % officers.length];
+      await assignOfficer(fir._id, officer);
+      idx += 1;
+    }
+
+    alert(`Assigned ${unassignedFirs.length} FIR(s) to officers.`);
+  };
+
+  const getPriorityBadge = (priority) => {
+    const map = {
+      High: { color: "#ff006e", label: "🔴 High" },
+      Medium: { color: "#ffb703", label: "🟡 Medium" },
+      Low: { color: "#2ec4b6", label: "🟢 Low" },
+    };
+    const item = map[priority] || { color: "#999", label: priority || "Medium" };
+
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
+          fontWeight: 600,
+        }}
+      >
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            backgroundColor: item.color,
+          }}
+        />
+        <span>{item.label}</span>
+      </span>
+    );
+  };
+
+  const isImage = (filename) => {
+    return /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(filename);
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setDrawerFIR(null);
   };
 
   // ⭐ FILTER
@@ -100,8 +246,24 @@ function ViewFIRs() {
 
   if (statusFilter !== "All") {
     filteredFIRs = filteredFIRs.filter(
-      (f) => (f.status || "Pending") === statusFilter
+      (f) => (f.status || "Registered") === statusFilter
     );
+  }
+
+  if (startDate) {
+    const start = new Date(startDate);
+    filteredFIRs = filteredFIRs.filter((f) => {
+      const created = new Date(f.createdAt);
+      return created >= start;
+    });
+  }
+
+  if (endDate) {
+    const end = new Date(endDate);
+    filteredFIRs = filteredFIRs.filter((f) => {
+      const created = new Date(f.createdAt);
+      return created <= end;
+    });
   }
 
   if (search) {
@@ -114,15 +276,86 @@ function ViewFIRs() {
     );
   }
 
-  // ⭐ CHART DATA
+  // SORT
+  filteredFIRs = filteredFIRs.sort((a, b) => {
+    const aTime = new Date(a.createdAt).getTime();
+    const bTime = new Date(b.createdAt).getTime();
+    return sortBy === "oldest" ? aTime - bTime : bTime - aTime;
+  });
+
+  // derive stats from filteredFIRs
+  const derivedStats = useMemo(() => {
+    const total = filteredFIRs.length;
+    const registered = filteredFIRs.filter((f) => f.status === "Registered").length;
+    const investigating = filteredFIRs.filter((f) => f.status === "Under Investigation").length;
+    const chargesheet = filteredFIRs.filter((f) => f.status === "Chargesheet Filed").length;
+    const closed = filteredFIRs.filter((f) => f.status === "Closed").length;
+    return { total, registered, investigating, chargesheet, closed };
+  }, [filteredFIRs]);
+
+  const eligibleComplaints = useMemo(() => {
+    // Include approved complaints plus those already converted to FIR
+    return complaints.filter(
+      (c) => c.status === "Approved" || c.status === "FIR Filed" || c.linkedFIR
+    ).length;
+  }, [complaints]);
+
+  const conversionRate = useMemo(() => {
+    if (!eligibleComplaints) return 0;
+    return Math.min(100, Math.round((firs.length / eligibleComplaints) * 100));
+  }, [eligibleComplaints, firs.length]);
+
+  const firTrendData = useMemo(() => {
+    // Build a 14-day trend of FIRs filed
+    const counts = {};
+    firs.forEach((f) => {
+      if (!f.createdAt) return;
+      const dateKey = new Date(f.createdAt).toISOString().slice(0, 10);
+      counts[dateKey] = (counts[dateKey] || 0) + 1;
+    });
+
+    const days = 14;
+    const trend = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      trend.push({ date: key, filed: counts[key] || 0 });
+    }
+
+    return trend;
+  }, [firs]);
+
+  const alerts = useMemo(() => {
+    const now = Date.now();
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    const pendingLonger = firs.filter((f) => {
+      const created = new Date(f.createdAt).getTime();
+      return (
+        (f.status === "Registered" || f.status === "Under Investigation") &&
+        created < weekAgo
+      );
+    }).length;
+
+    const highPriority = firs.filter((f) => f.priority === "High").length;
+
+    const unassigned = firs.filter(
+      (f) => !f.assignedOfficer || f.assignedOfficer === "Not Assigned"
+    ).length;
+
+    return { pendingLonger, highPriority, unassigned };
+  }, [firs]);
+
   const statusData = [
-    { name: "Pending", value: stats.pending },
-    { name: "In Progress", value: stats.inProgress },
-    { name: "Closed", value: stats.closed },
+    { name: "Registered", value: derivedStats.registered },
+    { name: "Under Investigation", value: derivedStats.investigating },
+    { name: "Chargesheet Filed", value: derivedStats.chargesheet },
+    { name: "Closed", value: derivedStats.closed },
   ];
 
   const categoryMap = {};
-  firs.forEach((f) => {
+  filteredFIRs.forEach((f) => {
     const cat = f.category || "Other";
     categoryMap[cat] = (categoryMap[cat] || 0) + 1;
   });
@@ -143,6 +376,91 @@ function ViewFIRs() {
     "Other",
   ];
 
+  const getStatusClass = (status) => {
+    const mapping = {
+      Registered: "registered",
+      "Under Investigation": "inprogress",
+      "Chargesheet Filed": "chargesheet",
+      Closed: "closed",
+      "FIR Filed": "firfiled",
+    };
+    return `status-${mapping[status] || "pending"}`;
+  };
+
+  const getStatusColor = (status) => {
+    const mapping = {
+      Registered: "#00b4d8",
+      "Under Investigation": "#8e44ad",
+      "Chargesheet Filed": "#ff4d4f",
+      Closed: "#2ec4b6",
+      "FIR Filed": "#00d9ff",
+      Rejected: "#ff006e",
+    };
+    return mapping[status] || "#999";
+  };
+
+  // Activity feed
+  const recentActivity = React.useMemo(() => {
+    const items = [];
+
+    complaints.forEach((c) => {
+      (c.timeline || []).forEach((t) => {
+        items.push({
+          id: `${c._id}-${t.date}-${t.message}`,
+          message: `Complaint ${c.complaintId}: ${t.message}`,
+          date: new Date(t.date),
+        });
+      });
+    });
+
+    firs.forEach((f) => {
+      (f.timeline || []).forEach((t) => {
+        items.push({
+          id: `${f._id}-${t.date}-${t.message}`,
+          message: `FIR ${f.firId}: ${t.message}`,
+          date: new Date(t.date),
+        });
+      });
+    });
+
+    return items
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 12);
+  }, [complaints, firs]);
+
+  const combinedTimeline = React.useMemo(() => {
+    if (!drawerFIR) return [];
+
+    const items = [];
+
+    // Include complaint timeline events (if available)
+    const complaint = drawerFIR.linkedComplaint;
+    if (complaint && complaint.timeline) {
+      complaint.timeline.forEach((t) => {
+        items.push({
+          id: `complaint-${complaint._id}-${t.date}-${t.message}`,
+          type: "Complaint",
+          message: t.message,
+          date: new Date(t.date),
+        });
+      });
+    }
+
+    // Include FIR timeline events
+    (drawerFIR.timeline || []).forEach((t) => {
+      items.push({
+        id: `fir-${drawerFIR._id}-${t.date}-${t.message}`,
+        type: "FIR",
+        message: t.message,
+        date: new Date(t.date),
+      });
+    });
+
+    return items
+      .sort((a, b) => b.date.getTime() - a.date.getTime())
+      .slice(0, 20);
+  }, [drawerFIR]);
+
   return (
     <>
       <Navbar />
@@ -161,11 +479,18 @@ function ViewFIRs() {
               {cat}
             </button>
           ))}
+
+          <hr />
+          
+          <h3>Management</h3>
+          <button onClick={() => window.location.href = "/review-complaints"} style={{ color: "#00b4d8" }}>
+            📋 Review Complaints
+          </button>
         </div>
 
         {/* MAIN */}
         <div className="pro-main">
-          <h2>All Cases</h2>
+          <h2>Filed FIRs</h2>
 
           {/* SEARCH */}
           <div className="pro-top">
@@ -177,37 +502,109 @@ function ViewFIRs() {
             />
 
             <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <option value="All">All Categories</option>
+              <option value="Theft">Theft</option>
+              <option value="Assault">Assault</option>
+              <option value="Cyber Crime">Cyber Crime</option>
+              <option value="Fraud">Fraud</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="All">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="In Progress">In Progress</option>
+              <option value="Registered">Registered</option>
+              <option value="Under Investigation">Under Investigation</option>
               <option value="Closed">Closed</option>
+              <option value="Chargesheet Filed">Chargesheet Filed</option>
             </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ width: 160 }}
+            >
+              <option value="latest">Sort: Latest</option>
+              <option value="oldest">Sort: Oldest</option>
+            </select>
+
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              title="Start Date"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              title="End Date"
+            />
           </div>
 
           {/* STATS */}
           <div className="pro-stats">
             <div className="box">
               <p>Total</p>
-              <h3>{stats.total}</h3>
+              <h3>{derivedStats.total}</h3>
+            </div>
+
+            <div className="box" style={{ backgroundColor: "#1b1f2a" }}>
+              <p>Conversion Rate</p>
+              <h3>{conversionRate}%</h3>
             </div>
 
             <div className="box pending">
-              <p>Pending</p>
-              <h3>{stats.pending}</h3>
+              <p>Registered</p>
+              <h3>{derivedStats.registered}</h3>
             </div>
 
             <div className="box progress">
-              <p>In Progress</p>
-              <h3>{stats.inProgress}</h3>
+              <p>Under Investigation</p>
+              <h3>{derivedStats.investigating}</h3>
+            </div>
+
+            <div className="box progress" style={{ backgroundColor: "#ff006e", color: "white" }}>
+              <p>Chargesheet</p>
+              <h3>{derivedStats.chargesheet}</h3>
             </div>
 
             <div className="box closed">
               <p>Closed</p>
-              <h3>{stats.closed}</h3>
+              <h3>{derivedStats.closed}</h3>
             </div>
+          </div>
+
+          {/* ALERTS */}
+          <div className="alerts-row">
+            {alerts.unassigned > 0 && (
+              <div className="alert-card" style={{ background: "rgba(255, 201, 71, 0.2)", color: "#ffb703" }}>
+                ⚠ {alerts.unassigned} FIR{alerts.unassigned === 1 ? "" : "s"} unassigned
+              </div>
+            )}
+
+            {alerts.pendingLonger > 0 && (
+              <div className="alert-card">
+                ⚠ {alerts.pendingLonger} FIR{alerts.pendingLonger === 1 ? "" : "s"} pending > 7 days
+              </div>
+            )}
+
+            {alerts.highPriority > 0 && (
+              <div className="alert-card" style={{ background: "#ff006e" }}>
+                🚨 {alerts.highPriority} high priority FIR{alerts.highPriority === 1 ? "" : "s"}
+              </div>
+            )}
+
+            {alerts.unassigned === 0 && alerts.pendingLonger === 0 && alerts.highPriority === 0 && (
+              <div className="alert-card" style={{ background: "#0f172a" }}>
+                ✅ All systems normal
+              </div>
+            )}
           </div>
 
           {/* CHARTS */}
@@ -228,12 +625,26 @@ function ViewFIRs() {
             </div>
 
             <div className="chart-box">
+              <h3>FIRs Filed (last 14 days)</h3>
+
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={firTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="filed" stroke="#00b4d8" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="chart-box">
               <h3>Cases by Category</h3>
 
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={categoryData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
                   <YAxis />
                   <Tooltip />
                   <Legend />
@@ -243,65 +654,317 @@ function ViewFIRs() {
             </div>
           </div>
 
+          {/* RECENT ACTIVITY */}
+          <div className="activity-panel">
+            <h3>Recent Activity</h3>
+            <ul>
+              {recentActivity.length === 0 ? (
+                <li style={{ padding: "10px", color: "#aaa" }}>
+                  No activity yet
+                </li>
+              ) : (
+                recentActivity.map((item) => (
+                  <li key={item.id}>
+                    <span style={{ fontSize: "14px" }}>{item.message}</span>
+                    <br />
+                    <small style={{ color: "#888" }}>
+                      {item.date.toLocaleString()}
+                    </small>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+
           {/* TABLE */}
           <div className="pro-table">
             <table>
               <thead>
                 <tr>
                   <th>FIR ID</th>
-                  <th>Description</th>
+                  <th>Complainant</th>
+                  <th>Location</th>
                   <th>Category</th>
                   <th>Status</th>
+                  <th>Assigned Officer</th>
                   <th>Change</th>
                   <th>Date</th>
                 </tr>
               </thead>
 
               <tbody>
-  {filteredFIRs.map((fir) => (
-    <tr
-      key={fir._id}
-      style={{ cursor: "pointer" }}
-      onClick={() => navigate(`/fir/${fir._id}`)}
-    >
-      <td>{fir.firId || "N/A"}</td>
-      <td>{fir.description || "-"}</td>
-      <td>{fir.category || "Other"}</td>
+                {filteredFIRs.map((fir) => (
+                  <tr
+                    key={fir._id}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => {
+                      setDrawerFIR(fir);
+                      setDrawerOpen(true);
+                    }}
+                  >
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span>{fir.firId || "N/A"}</span>
+                        {fir.status === "Registered" && (
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              padding: "2px 8px",
+                              borderRadius: "999px",
+                              background: "rgba(0, 180, 216, 0.2)",
+                              color: "#00b4d8",
+                            }}
+                          >
+                            📄
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-      <td
-        className={`status-${(fir.status || "Pending")
-          .toLowerCase()
-          .replace(" ", "")}`}
-      >
-        {fir.status || "Pending"}
-      </td>
+                    <td>{fir.complainantName || "-"}</td>
+                    <td>{fir.location || "-"}</td>
+                    <td>{fir.category || "Other"}</td>
 
-      {/* VERY IMPORTANT */}
-      {/* prevent row click when using dropdown */}
-      <td onClick={(e) => e.stopPropagation()}>
-        <select
-          value={fir.status || "Pending"}
-          onChange={(e) => updateStatus(fir._id, e.target.value)}
-        >
-          <option>Pending</option>
-          <option>In Progress</option>
-          <option>Closed</option>
-        </select>
-      </td>
+                    <td className={getStatusClass(fir.status)}>
+                      {fir.status || "Registered"}
+                    </td>
 
-      <td>
-        {fir.createdAt
-          ? new Date(fir.createdAt).toLocaleString()
-          : "-"}
-      </td>
-    </tr>
-  ))}
-</tbody>
+                    <td>{fir.assignedOfficer || "Not assigned"}</td>
+
+                    {/* VERY IMPORTANT */}
+                    {/* prevent row click when using dropdown */}
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={fir.status || "Registered"}
+                        onChange={(e) => updateStatus(fir._id, e.target.value)}
+                      >
+                        <option value="Registered">Registered</option>
+                        <option value="Under Investigation">Under Investigation</option>
+                        <option value="Closed">Closed</option>
+                        <option value="Chargesheet Filed">Chargesheet Filed</option>
+                      </select>
+                    </td>
+
+                    <td>
+                      {fir.createdAt
+                        ? new Date(fir.createdAt).toLocaleString()
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
 
             </table>
           </div>
         </div>
       </div>
+
+      {drawerOpen && drawerFIR && (
+        <div className="drawer-overlay" onClick={closeDrawer}>
+          <div className="drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-header">
+              <h3>FIR Details</h3>
+              <button className="drawer-close" onClick={closeDrawer}>
+                ✕
+              </button>
+            </div>
+
+            <div className="drawer-body">
+              <p>
+                <strong>FIR ID:</strong> {drawerFIR.firId}
+              </p>
+              <p>
+                <strong>Status:</strong>{" "}
+                <span
+                  style={{
+                    backgroundColor: getStatusColor(drawerFIR.status),
+                    padding: "4px 10px",
+                    borderRadius: "999px",
+                    color: "white",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {drawerFIR.status}
+                </span>
+              </p>
+              <p>
+                <strong>Complainant:</strong> {drawerFIR.complainantName || "-"}
+              </p>
+              <p>
+                <strong>Location:</strong> {drawerFIR.location || "-"}
+              </p>
+              <p>
+                <strong>Category:</strong> {drawerFIR.category}
+              </p>
+              <p>
+                <strong>Priority:</strong> {getPriorityBadge(drawerFIR.priority)}
+              </p>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <strong>Assigned Officer:</strong>
+
+                {assignMode ? (
+                  <>
+                    <input
+                      value={assignInput}
+                      onChange={(e) => setAssignInput(e.target.value)}
+                      placeholder="Officer name"
+                      style={{ padding: "6px 10px", borderRadius: "6px", border: "1px solid #ccc" }}
+                    />
+                    <button
+                      className="btn"
+                      style={{ backgroundColor: "#00b4d8" }}
+                      onClick={() => assignOfficer(drawerFIR._id, assignInput)}
+                    >
+                      Save
+                    </button>
+                    <button
+                      className="btn"
+                      style={{ backgroundColor: "#333" }}
+                      onClick={() => setAssignMode(false)}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span>{drawerFIR.assignedOfficer || "Not assigned"}</span>
+                    <button
+                      className="btn"
+                      style={{
+                        backgroundColor: "rgba(0, 180, 216, 0.2)",
+                        color: "#00b4d8",
+                        fontWeight: 600,
+                      }}
+                      onClick={() => setAssignMode(true)}
+                    >
+                      Assign
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {drawerFIR.linkedComplaint?.evidence?.length > 0 && (
+                <div style={{ marginTop: "16px" }}>
+                  <h4>Evidence</h4>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
+                    {drawerFIR.linkedComplaint.evidence.map((file, idx) => {
+                      const fileUrl = `http://localhost:4000/${file}`;
+                      const fileName = file.split("/").pop();
+                      const image = isImage(fileName);
+
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            border: "1px solid #333",
+                            borderRadius: "8px",
+                            padding: "10px",
+                            width: "140px",
+                          }}
+                        >
+                          {image ? (
+                            <img
+                              src={fileUrl}
+                              alt={fileName}
+                              style={{
+                                width: "100%",
+                                height: "80px",
+                                objectFit: "cover",
+                                borderRadius: "6px",
+                                marginBottom: "8px",
+                              }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: "100%",
+                                height: "80px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "#0f172a",
+                                color: "#fff",
+                                borderRadius: "6px",
+                                marginBottom: "8px",
+                                fontSize: "12px",
+                                textAlign: "center",
+                                padding: "8px",
+                              }}
+                            >
+                              {fileName}
+                            </div>
+                          )}
+
+                          <a
+                            href={fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              textDecoration: "none",
+                              color: "#00b4d8",
+                              fontWeight: 600,
+                            }}
+                          >
+                            ⬇ Download
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <hr />
+
+              <h4>Internal Notes</h4>
+              <textarea
+                value={drawerNotes}
+                onChange={(e) => setDrawerNotes(e.target.value)}
+                rows={4}
+                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #333" }}
+              />
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
+                <button className="btn" onClick={saveInternalNotes}>
+                  Save Notes
+                </button>
+                <button
+                  className="btn"
+                  style={{ background: "#333" }}
+                  onClick={closeDrawer}
+                >
+                  Close
+                </button>
+              </div>
+
+              {combinedTimeline.length > 0 && (
+                <>
+                  <h4 style={{ marginTop: "20px" }}>History</h4>
+                  <div className="timeline" style={{ maxHeight: "220px", overflow: "auto" }}>
+                    {combinedTimeline.map((t) => (
+                      <div key={t.id} className="timeline-item">
+                        <div className="dot"></div>
+                        <div>
+                          <p style={{ margin: 0 }}>
+                            <strong style={{ color: "#00b4d8" }}>{t.type}:</strong> {t.message}
+                          </p>
+                          <small style={{ color: "#888" }}>
+                            {t.date ? t.date.toLocaleString() : ""}
+                          </small>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

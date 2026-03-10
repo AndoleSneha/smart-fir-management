@@ -122,8 +122,56 @@ select {
 
 /* STATUS COLORS */
 .status-pending { color: #ffb703; font-weight: bold; }
-.status-inprogress { color: #00b4d8; font-weight: bold; }
+.status-registered { color: #00b4d8; font-weight: bold; }
+.status-inprogress { color: #8e44ad; font-weight: bold; }
 .status-closed { color: #2ec4b6; font-weight: bold; }
+.status-chargesheet { color: #ff4d4f; font-weight: bold; }
+.status-rejected { color: #ff006e; font-weight: bold; }
+.status-approved { color: #00b4d8; font-weight: bold; }
+.status-firfiled { color: #00d9ff; font-weight: bold; }
+
+/* TABLE / SCROLL */
+.pro-table {
+  background: #0f172a;
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 55vh;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px; /* help scrolling */
+}
+
+th {
+  text-align: left;
+  padding: 12px;
+  background: #081c2f;
+  color: #00c2ff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* ALERTS */
+.alerts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.alert-card {
+  background: #1b1f2a;
+  padding: 14px 16px;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 600;
+  flex: 1;
+  min-width: 220px;
+  border: 1px solid rgba(0, 196, 255, 0.25);
+}
 
 /* CHARTS */
 .charts {
@@ -131,6 +179,33 @@ select {
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   margin: 20px 0;
+}
+
+.activity-panel {
+  background: #0f172a;
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.activity-panel h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 16px;
+  color: #00c2ff;
+}
+
+.activity-panel ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.activity-panel li {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chart-box {
@@ -224,7 +299,49 @@ select {
     color: black !important;
   }
 }
+/* DRAWER (DETAIL PANEL) */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 1000;
+}
 
+.drawer {
+  width: min(520px, 90vw);
+  height: 100%;
+  background: #0b1e35;
+  padding: 24px;
+  overflow-y: auto;
+  box-shadow: -5px 0 25px rgba(0, 0, 0, 0.6);
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.drawer-close {
+  border: none;
+  background: transparent;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.drawer-body p {
+  margin: 8px 0;
+  color: #d1d5db;
+}
+
+.drawer-body h4 {
+  margin: 16px 0 10px;
+  color: #00c2ff;
+}
 /* =====================================
    REAL FIR DOCUMENT STYLE
 =====================================*/

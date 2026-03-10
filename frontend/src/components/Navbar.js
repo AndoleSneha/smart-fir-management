@@ -42,14 +42,21 @@ function Navbar() {
               style={isActive("/file-fir") ? styles.activeBtn : styles.btn}
               onClick={() => navigate("/file-fir")}
             >
-              File FIR
+              File Complaint
+            </button>
+
+            <button
+              style={isActive("/my-complaints") ? styles.activeBtn : styles.btn}
+              onClick={() => navigate("/my-complaints")}
+            >
+              My Complaints
             </button>
 
             <button
               style={isActive("/track-fir") ? styles.activeBtn : styles.btn}
               onClick={() => navigate("/track-fir")}
             >
-              Track FIR
+              Track Status
             </button>
 
             <button style={styles.logoutBtn} onClick={logout}>
@@ -62,10 +69,17 @@ function Navbar() {
         {token && role === "police" && (
           <>
             <button
+              style={isActive("/review-complaints") ? styles.activeBtn : styles.btn}
+              onClick={() => navigate("/review-complaints")}
+            >
+              Review Complaints
+            </button>
+
+            <button
               style={isActive("/admin") ? styles.activeBtn : styles.btn}
               onClick={() => navigate("/admin")}
             >
-              Admin Dashboard
+              Filed FIRs
             </button>
 
             <button style={styles.logoutBtn} onClick={logout}>
